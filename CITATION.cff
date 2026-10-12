@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Habitat suitability modelling pipeline for Mentha pulegium"
+type: software
+version: 1.0.0
+date-released: 2026-10-12
+license: MIT
+authors:
+  - family-names: Adeyomoye
+    given-names: Samson

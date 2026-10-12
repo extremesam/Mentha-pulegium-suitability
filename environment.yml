@@ -1,0 +1,17 @@
+name: hsm
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - rasterio
+  - matplotlib
+  - pyyaml
+  - requests
+  - pytest
+  - pip
+  - pip:
+      - -e .
