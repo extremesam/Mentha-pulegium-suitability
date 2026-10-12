@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+
+# Data: raw downloads and generated demo inputs are large/regenerable.
+# Small processed outputs and results ARE committed on purpose.
+data/demo/
+data/raw/*
+!data/raw/README.md
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
