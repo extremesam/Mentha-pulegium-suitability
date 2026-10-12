@@ -1,0 +1,61 @@
+# Configuration for the habitat suitability pipeline.
+# Run:  hsm run --config config/config.yaml --mode demo
+
+project:
+  species: Mentha pulegium
+  seed: 42
+
+# Study area on a geographic (EPSG:4326) grid.
+# The demo uses an Iberia-sized extent at ~5 km; for real work use e.g. 0.00833 (~1 km, WorldClim 30 arc-sec).
+study_area:
+  name: Iberia-sized demo extent
+  west: -10.0
+  south: 36.0
+  east: 4.0
+  north: 44.0
+  resolution: 0.05
+  crs: EPSG:4326
+
+paths:
+  demo_dir: data/demo          # generated, git-ignored
+  raw_dir: data/raw            # put real downloads here (git-ignored)
+  processed_dir: data/processed
+  results_dir: results
+
+occurrences:
+  source: gbif                 # real mode only: gbif | csv
+  csv: data/raw/occurrences.csv
+  max_gbif_records: 5000
+  max_uncertainty_m: 5000
+  year_min: 1990
+  thin_to_grid: true           # keep one record per grid cell (reduces sampling bias)
+
+# Predictors, in priority order for the collinearity filter.
+# `file` is relative to the layers directory; `resampling` is how it is brought to the study grid.
+layers:
+  bio1:      {file: bio1.tif,          resampling: bilinear}   # mean annual temperature
+  bio12:     {file: bio12.tif,         resampling: bilinear}   # annual precipitation
+  bio15:     {file: bio15.tif,         resampling: bilinear}   # precipitation seasonality
+  elevation: {file: elevation_dem.tif, resampling: average}    # SRTM DEM
+  slope:     {derived_from: elevation}
+  soil_ph:   {file: soil_ph.tif,       resampling: bilinear}   # SoilGrids
+  clay:      {file: clay.tif,          resampling: bilinear}   # SoilGrids
+  ndvi:      {from_scenes: true}                               # Sentinel-2 cloud-masked median composite
+
+background:
+  n_points: 5000
+  exclude_presence_cells: false
+
+features:
+  correlation_threshold: 0.85
+
+modeling:
+  test_size: 0.30
+  algorithms: [random_forest, maxent_style, boosted_trees]
+  random_forest: {n_estimators: 500, min_samples_leaf: 5, max_features: sqrt}
+  boosted_trees: {learning_rate: 0.05, max_iter: 300, max_leaf_nodes: 15}
+  ensemble_min_auc: 0.70       # models below this test AUC are left out of the ensemble
+  spatial_cv: {enabled: true, block_deg: 2.0, n_splits: 5}
+
+mapping:
+  class_thresholds: [0.25, 0.50, 0.75]   # very low | low | moderate | high
