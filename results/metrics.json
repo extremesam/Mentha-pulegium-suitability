@@ -1,0 +1,118 @@
+{
+  "species": "Mentha pulegium",
+  "mode": "demo",
+  "version": "1.0.0",
+  "seed": 42,
+  "grid": {
+    "rows": 160,
+    "cols": 280,
+    "resolution_deg": 0.05,
+    "bbox": [
+      -10.0,
+      36.0,
+      4.0,
+      44.0
+    ]
+  },
+  "records": {
+    "raw": 443,
+    "clean": 320,
+    "presence_in_model": 320,
+    "background": 5000
+  },
+  "predictors_used": [
+    "bio1",
+    "bio12",
+    "bio15",
+    "slope",
+    "soil_ph",
+    "clay",
+    "ndvi"
+  ],
+  "predictors_dropped_collinear": [
+    {
+      "dropped": "elevation",
+      "kept": "bio1",
+      "abs_r": 0.8811795553051379
+    }
+  ],
+  "metrics": {
+    "random_forest": {
+      "auc": 0.8111215277777778,
+      "accuracy": 0.7362155388471178,
+      "kappa": 0.17789132126444385,
+      "tss": 0.5048333333333335,
+      "sensitivity": 0.7708333333333334,
+      "specificity": 0.734,
+      "threshold": 0.15564604994547826,
+      "boyce": 0.8260630845014212,
+      "spatial_cv_auc_mean": 0.8057087081777607,
+      "spatial_cv_auc_sd": 0.025544322913067817
+    },
+    "maxent_style": {
+      "auc": 0.8372743055555556,
+      "accuracy": 0.6873433583959899,
+      "kappa": 0.14845323787161446,
+      "tss": 0.4820833333333334,
+      "sensitivity": 0.8020833333333334,
+      "specificity": 0.68,
+      "threshold": 0.4898685012348513,
+      "boyce": 0.9342202327376866,
+      "spatial_cv_auc_mean": 0.8320674929222761,
+      "spatial_cv_auc_sd": 0.015483569723692643
+    },
+    "boosted_trees": {
+      "auc": 0.7983993055555555,
+      "accuracy": 0.718671679197995,
+      "kappa": 0.15793110255650977,
+      "tss": 0.4666666666666668,
+      "sensitivity": 0.75,
+      "specificity": 0.7166666666666667,
+      "threshold": 0.13119403247201095,
+      "boyce": 0.9082682764536546,
+      "spatial_cv_auc_mean": 0.7884435848560999,
+      "spatial_cv_auc_sd": 0.024332487858536565
+    },
+    "ensemble": {
+      "auc": 0.8302187499999999,
+      "accuracy": 0.7098997493734336,
+      "kappa": 0.1752186549872088,
+      "tss": 0.5450833333333334,
+      "sensitivity": 0.84375,
+      "specificity": 0.7013333333333334,
+      "threshold": 0.2589028612174468,
+      "boyce": 0.9365256525652564,
+      "members": [
+        "random_forest",
+        "maxent_style",
+        "boosted_trees"
+      ]
+    },
+    "demo_validation": {
+      "spearman_rho_vs_true_suitability": 0.9484895102376408
+    }
+  },
+  "class_area": [
+    {
+      "class": "High",
+      "area_km2": 19322.2,
+      "percent": 1.82
+    },
+    {
+      "class": "Moderate",
+      "area_km2": 102045.5,
+      "percent": 9.63
+    },
+    {
+      "class": "Low",
+      "area_km2": 198828.9,
+      "percent": 18.76
+    },
+    {
+      "class": "Very low",
+      "area_km2": 739765.3,
+      "percent": 69.79
+    }
+  ],
+  "runtime_seconds": 81.3
+}
