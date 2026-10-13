@@ -1,0 +1,7 @@
+variable,train_min,train_max,target_min,target_max,pct_target_below_train,pct_target_above_train,pct_target_outside_train
+bio1,6.034,21.527,12.266,24.711,0.0,22.09,22.09
+bio12,150.0,1450.127,500.0,1891.198,0.0,11.81,11.81
+bio15,19.826,78.372,24.897,80.389,0.0,0.73,0.73
+slope,0.0,0.984,0.0,0.935,0.0,0.0,0.0
+soil_ph,4.88,8.5,5.168,8.384,0.0,0.0,0.0
+clay,5.0,50.615,8.148,47.855,0.0,0.0,0.0

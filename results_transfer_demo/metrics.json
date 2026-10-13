@@ -1,0 +1,243 @@
+{
+  "species": "Mentha pulegium",
+  "mode": "demo",
+  "version": "1.0.0",
+  "seed": 42,
+  "grid": {
+    "rows": 160,
+    "cols": 280,
+    "resolution_deg": 0.05,
+    "bbox": [
+      -10.0,
+      36.0,
+      4.0,
+      44.0
+    ]
+  },
+  "records": {
+    "raw": 443,
+    "clean": 322,
+    "presence_in_model": 322,
+    "background": 5000
+  },
+  "predictors_used": [
+    "bio1",
+    "bio12",
+    "bio15",
+    "slope",
+    "soil_ph",
+    "clay"
+  ],
+  "predictors_dropped_collinear": [
+    {
+      "dropped": "elevation",
+      "kept": "bio1",
+      "abs_r": 0.8818289134303503
+    }
+  ],
+  "metrics": {
+    "random_forest": {
+      "auc": 0.8235360824742268,
+      "accuracy": 0.728240450845335,
+      "kappa": 0.18130424716627214,
+      "tss": 0.5274570446735396,
+      "sensitivity": 0.8041237113402062,
+      "specificity": 0.7233333333333334,
+      "threshold": 0.14232924542618694,
+      "boyce": 0.5121509937775357,
+      "spatial_cv_auc_mean": 0.7915044037727939,
+      "spatial_cv_auc_sd": 0.02559912909297766
+    },
+    "maxent_style": {
+      "auc": 0.8347182130584193,
+      "accuracy": 0.7382592360676268,
+      "kappa": 0.1759810396119046,
+      "tss": 0.48991065292096225,
+      "sensitivity": 0.7525773195876289,
+      "specificity": 0.7373333333333333,
+      "threshold": 0.5497989986837998,
+      "boyce": 0.9381810763481077,
+      "spatial_cv_auc_mean": 0.8104789930568138,
+      "spatial_cv_auc_sd": 0.03165294758766677
+    },
+    "boosted_trees": {
+      "auc": 0.823512027491409,
+      "accuracy": 0.6819035691922355,
+      "kappa": 0.1514044655876119,
+      "tss": 0.4974089347079036,
+      "sensitivity": 0.8247422680412371,
+      "specificity": 0.6726666666666666,
+      "threshold": 0.09121691114631492,
+      "boyce": 0.8283652620983429,
+      "spatial_cv_auc_mean": 0.795039988627844,
+      "spatial_cv_auc_sd": 0.03492050628821476
+    },
+    "ensemble": {
+      "auc": 0.8374673539518901,
+      "accuracy": 0.7094552285535379,
+      "kappa": 0.17140077603461956,
+      "tss": 0.526742268041237,
+      "sensitivity": 0.8247422680412371,
+      "specificity": 0.702,
+      "threshold": 0.26111505175210054,
+      "boyce": 0.9577317731773175,
+      "members": [
+        "random_forest",
+        "maxent_style",
+        "boosted_trees"
+      ]
+    },
+    "demo_validation": {
+      "spearman_rho_vs_true_suitability": 0.9504771938179755
+    }
+  },
+  "class_area": [
+    {
+      "class": "High",
+      "area_km2": 18064.4,
+      "percent": 1.7
+    },
+    {
+      "class": "Moderate",
+      "area_km2": 118537.5,
+      "percent": 11.18
+    },
+    {
+      "class": "Low",
+      "area_km2": 191489.8,
+      "percent": 18.07
+    },
+    {
+      "class": "Very low",
+      "area_km2": 731870.3,
+      "percent": 69.05
+    }
+  ],
+  "projection": {
+    "name": "Demo target region (synthetic)",
+    "grid": {
+      "rows": 160,
+      "cols": 200,
+      "resolution_deg": 0.05,
+      "bbox": [
+        20.0,
+        5.0,
+        30.0,
+        13.0
+      ]
+    },
+    "pct_cells_in_training_domain": 67.36,
+    "clamped": true,
+    "members": [
+      "random_forest",
+      "maxent_style",
+      "boosted_trees"
+    ],
+    "mean_suitability_all": 0.12239506095647812,
+    "mean_suitability_in_domain": 0.1585039645433426,
+    "mean_model_sd": 0.07229050993919373,
+    "class_area": [
+      {
+        "class": "High",
+        "area_km2_total": 61.1,
+        "percent_of_region": 0.01,
+        "area_km2_in_domain": 61.1,
+        "percent_of_region_in_domain": 0.01
+      },
+      {
+        "class": "Moderate",
+        "area_km2_total": 29099.8,
+        "percent_of_region": 2.98,
+        "area_km2_in_domain": 29099.8,
+        "percent_of_region_in_domain": 2.98
+      },
+      {
+        "class": "Low",
+        "area_km2_total": 179737.7,
+        "percent_of_region": 18.41,
+        "area_km2_in_domain": 162346.4,
+        "percent_of_region_in_domain": 16.63
+      },
+      {
+        "class": "Very low",
+        "area_km2_total": 767277.6,
+        "percent_of_region": 78.6,
+        "area_km2_in_domain": 466162.8,
+        "percent_of_region_in_domain": 47.75
+      }
+    ],
+    "variable_ranges": [
+      {
+        "variable": "bio1",
+        "train_min": 6.034,
+        "train_max": 21.527,
+        "target_min": 12.266,
+        "target_max": 24.711,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 22.09,
+        "pct_target_outside_train": 22.09
+      },
+      {
+        "variable": "bio12",
+        "train_min": 150.0,
+        "train_max": 1450.127,
+        "target_min": 500.0,
+        "target_max": 1891.198,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 11.81,
+        "pct_target_outside_train": 11.81
+      },
+      {
+        "variable": "bio15",
+        "train_min": 19.826,
+        "train_max": 78.372,
+        "target_min": 24.897,
+        "target_max": 80.389,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 0.73,
+        "pct_target_outside_train": 0.73
+      },
+      {
+        "variable": "slope",
+        "train_min": 0.0,
+        "train_max": 0.984,
+        "target_min": 0.0,
+        "target_max": 0.935,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 0.0,
+        "pct_target_outside_train": 0.0
+      },
+      {
+        "variable": "soil_ph",
+        "train_min": 4.88,
+        "train_max": 8.5,
+        "target_min": 5.168,
+        "target_max": 8.384,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 0.0,
+        "pct_target_outside_train": 0.0
+      },
+      {
+        "variable": "clay",
+        "train_min": 5.0,
+        "train_max": 50.615,
+        "target_min": 8.148,
+        "target_max": 47.855,
+        "pct_target_below_train": 0.0,
+        "pct_target_above_train": 0.0,
+        "pct_target_outside_train": 0.0
+      }
+    ],
+    "demo_validation": {
+      "spearman_all": 0.7624460279107675,
+      "mean_abs_error_all": 0.058575741946697235,
+      "spearman_in_domain": 0.8597341422775063,
+      "mean_abs_error_in_domain": 0.069981150329113,
+      "n_cells_in_domain": 21556,
+      "spearman_extrapolated": 0.2641145488188049,
+      "mean_abs_error_extrapolated": 0.03503543138504028,
+      "n_cells_extrapolated": 10444
+    }
+  },
+  "runtime_seconds": 83.7
+}
