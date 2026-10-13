@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-27%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen)
 
 A reproducible, config-driven Python pipeline that predicts **where environmental conditions are suitable** for a plant species (here, pennyroyal, *Mentha pulegium*) by combining occurrence records, climate, terrain, soil and satellite-derived layers with machine-learning models. It implements the seven-stage workflow below, one module per stage.
 
@@ -65,6 +65,33 @@ Setup: 443 raw records cleaned to 320 presences, 5,000 background points, 7 pred
 
 ---
 
+## Transfer: projecting suitability onto Nigeria
+
+GBIF has no *M. pulegium* records in Nigeria, so the project asks a different question: **where in Nigeria do conditions resemble those where the species is known to live, and how much of that answer is extrapolation?** Stage 8 trains on the species' range elsewhere, predicts onto a Nigeria grid, and flags every cell where the model is outside the climate it was trained on (MESS, Elith et al. 2010).
+
+The Nigeria run itself ([`config/nigeria_transfer.yaml`](config/nigeria_transfer.yaml), guide in [`docs/TRANSFER_NIGERIA.md`](docs/TRANSFER_NIGERIA.md)) **has not been run yet.** What is included and tested is the machinery, demonstrated below on synthetic data with a known answer: the virtual species is trained in one region and projected onto a different, warmer and wetter region.
+
+| Demo transfer check (synthetic) | Result |
+|---|---|
+| Share of target cells inside the training climate (MESS ≥ 0) | 67.4 % |
+| Predictors most often out of range | bio1 (22 % of cells), bio12 (12 %) |
+| Rank agreement with the true suitability, cells inside the training climate | Spearman ρ = **0.86** |
+| Rank agreement, cells outside the training climate | Spearman ρ = **0.26** |
+
+The drop from 0.86 to 0.26 is why the extrapolation map matters: the model ranks cells well where it has seen similar conditions and much worse where it has not. (Mean absolute error is *lower* outside the training climate, 0.035 vs 0.070, only because most of those cells are truly unsuitable. The ranking is what degrades.)
+
+<p align="center">
+  <img src="results_transfer_demo/figures/09_transfer_suitability.png" alt="Transfer suitability map with extrapolated cells greyed" width="640">
+</p>
+<p align="center">
+  <img src="results_transfer_demo/figures/10_transfer_extrapolation_diagnostics.png" alt="MESS, most dissimilar variable and model disagreement" width="900">
+</p>
+
+```bash
+hsm run --config config/transfer_demo.yaml --mode demo                  # synthetic demo, ~1.5 min
+hsm run --config config/nigeria_transfer.yaml --mode real               # real Nigeria run (see docs/TRANSFER_NIGERIA.md)
+```
+
 ## Pipeline
 
 | # | Stage | What it does | Code |
@@ -76,13 +103,14 @@ Setup: 443 raw records cleaned to 320 presences, 5,000 background points, 7 pred
 | 5 | Modelling | Random forest, MaxEnt-style regularised logistic model, boosted trees, and their mean ensemble | [`modeling.py`](src/hsm/modeling.py) |
 | 6 | Evaluation | AUC, accuracy, Kappa, TSS, continuous Boyce index on a 30 % hold-out; spatial-block CV; permutation importance | [`evaluation.py`](src/hsm/evaluation.py) |
 | 7 | Suitability mapping | Continuous 0-1 surface, four classes (very low / low / moderate / high), area statistics, publication figures | [`mapping.py`](src/hsm/mapping.py) |
+| 8 | Transfer to a new region (optional) | Predict a region the species was never recorded in, with MESS extrapolation map, clamping, model-disagreement map, masked area statistics | [`projection.py`](src/hsm/projection.py) |
 
 `pipeline.py` wires the stages together; `synthetic.py` generates the demo data; `cli.py` is the entry point.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/mentha-habitat-suitability.git
+git clone https://github.com/extremesam/mentha-habitat-suitability.git
 cd mentha-habitat-suitability
 
 # Option A: pip (rasterio ships wheels for common platforms)
@@ -93,7 +121,7 @@ pip install -e ".[dev]"
 conda env create -f environment.yml && conda activate hsm
 
 hsm run --config config/config.yaml --mode demo    # ~1-2 minutes
-pytest                                              # 27 tests
+pytest                                              # 38 tests
 ```
 
 Outputs land in `results/` (metrics, tables, figures, GeoTIFFs) and `data/processed/` (cleaned occurrences, layer stack, modelling table).
@@ -112,9 +140,11 @@ For a published analysis, request a GBIF *download* (it gives you a citable DOI)
 ```
 ├── src/hsm/            pipeline package (one module per stage)
 ├── config/config.yaml  every tunable choice in one place
-├── tests/              27 pytest tests incl. a small end-to-end run
+├── scripts/            prepare_real_data.py (WorldClim + country outline)
+├── tests/              38 pytest tests incl. small end-to-end runs
 ├── docs/               methodology, data sources, QGIS guide, workflow figure
 ├── results/            metrics.json, tables, figures/, rasters/ (demo run)
+├── results_transfer_demo/  same, plus transfer outputs (synthetic transfer demo)
 ├── data/processed/     cleaned occurrences, layer stack, modelling dataset (demo run)
 └── .github/workflows/  CI: pytest on Python 3.10 and 3.12
 ```
@@ -132,6 +162,7 @@ Details and reasoning are in [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md). In br
 
 - Demo results are from synthetic data and are not ecological findings.
 - No sampling-bias correction beyond thinning (no target-group background or bias grid).
+- The Nigeria transfer is untested on live data. GBIF records may include cultivated plants, and the pipeline does not filter on establishment means.
 - Static, present-day conditions only; no climate-change projections or dispersal limits.
 - Presence-background design: no verified absences.
 - The 5 km demo grid is coarse; microhabitat of a species tied to seasonal wet depressions needs much finer data.
@@ -140,7 +171,6 @@ Details and reasoning are in [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md). In br
 ## Roadmap
 
 - Target-group background and bias-corrected sampling
-- Environmental-extrapolation (MESS) map
 - Future-climate projections (CMIP6 WorldClim layers)
 - Hyper-parameter tuning with spatial CV
 

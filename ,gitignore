@@ -17,3 +17,8 @@ data/raw/*
 .DS_Store
 .idea/
 .vscode/
+
+# Transfer-run intermediates (regenerable)
+data/demo_transfer/
+data/processed_transfer_demo/
+data/processed_nigeria/

@@ -146,7 +146,7 @@ def plot_cleaning_funnel(steps: list[tuple[str, int]], path):
     return _finish(fig, path)
 
 
-def plot_truth_vs_prediction(truth, surface, grid: Grid, rho: float, path):
+def plot_truth_vs_prediction(truth, surface, grid: Grid, rho: float, path, label="Demo validation"):
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
     for ax, data, title in zip(axes, (truth, surface), ("Virtual species: true suitability", "Model: predicted suitability")):
         im = ax.imshow(data, cmap="RdYlGn", vmin=0, vmax=1, extent=_extent(grid), interpolation="nearest")
@@ -154,5 +154,51 @@ def plot_truth_vs_prediction(truth, surface, grid: Grid, rho: float, path):
         ax.set_xlabel("Longitude")
     axes[0].set_ylabel("Latitude")
     fig.colorbar(im, ax=axes, shrink=0.85, label="Suitability (0-1)")
-    fig.suptitle(f"Demo validation: Spearman rho = {rho:.3f}", y=1.0)
+    fig.suptitle(f"{label}: Spearman rho = {rho:.3f}", y=1.0)
+    return _finish(fig, path)
+
+
+def plot_transfer_map(classes, in_domain, grid: Grid, path, title):
+    """Classified suitability, greyed where the model is extrapolating (MESS < 0)."""
+    cmap = ListedColormap(["white"] + [CLASS_COLOURS[k] for k in (1, 2, 3, 4)])
+    fig, ax = plt.subplots(figsize=(9, 6.4))
+    ax.imshow(classes, cmap=cmap, vmin=0, vmax=4, extent=_extent(grid), interpolation="nearest")
+    extrap = np.ma.masked_where(~((classes != NODATA_CLASS) & ~in_domain), np.ones(classes.shape))
+    ax.imshow(extrap, cmap=ListedColormap(["#e6e6e6"]), alpha=0.72, extent=_extent(grid), interpolation="nearest")
+    handles = [Patch(color=CLASS_COLOURS[k], label=CLASS_NAMES[k]) for k in (4, 3, 2, 1)]
+    handles.append(Patch(facecolor="#e6e6e6", edgecolor="#999999", alpha=0.9, label="Outside training range\n(MESS < 0, extrapolated)"))
+    ax.legend(handles=handles, title="Transfer suitability", loc="center left", bbox_to_anchor=(1.01, 0.5), frameon=False)
+    ax.set_title(title, fontsize=12, weight="bold")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    return _finish(fig, path)
+
+
+def plot_mess_panel(mess, mod, sd, names, grid: Grid, path):
+    """Three panels: MESS, most-dissimilar variable (where MESS < 0), and between-model SD."""
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5.2), constrained_layout=True)
+    ext = _extent(grid)
+
+    im = axes[0].imshow(np.clip(mess, -100, 100), cmap="RdBu", vmin=-100, vmax=100, extent=ext, interpolation="nearest")
+    fig.colorbar(im, ax=axes[0], shrink=0.8, label="MESS (%), clipped at +/-100")
+    axes[0].set_title("Environmental similarity (MESS)\nnegative = outside training range", weight="bold", fontsize=11)
+
+    palette = plt.get_cmap("tab10")
+    colours = [palette(i % 10) for i in range(len(names))]
+    shown = np.where((mess < 0) & (mod >= 0), mod, -1).astype(float)
+    shown[shown < 0] = np.nan
+    axes[1].imshow(shown, cmap=ListedColormap(colours), vmin=-0.5, vmax=len(names) - 0.5, extent=ext, interpolation="nearest")
+    present = [i for i in range(len(names)) if np.any(shown == i)]
+    axes[1].legend(
+        handles=[Patch(color=colours[i], label=names[i]) for i in present] or [Patch(color="white", label="(none: all cells in range)")],
+        title="Most dissimilar variable", loc="lower left", fontsize=8, framealpha=0.9,
+    )
+    axes[1].set_title("What is out of range\n(only where MESS < 0)", weight="bold", fontsize=11)
+
+    im2 = axes[2].imshow(sd, cmap="magma_r", vmin=0, extent=ext, interpolation="nearest")
+    fig.colorbar(im2, ax=axes[2], shrink=0.8, label="SD between models")
+    axes[2].set_title("Model disagreement\n(higher = less trustworthy)", weight="bold", fontsize=11)
+    for ax in axes:
+        ax.set_xlabel("Longitude")
+    axes[0].set_ylabel("Latitude")
     return _finish(fig, path)

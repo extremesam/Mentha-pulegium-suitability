@@ -13,6 +13,7 @@ genuinely exercised.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -89,9 +90,9 @@ def make_environment(grid: Grid, seed: int) -> dict[str, np.ndarray]:
     }
 
 
-def virtual_species_suitability(env: dict[str, np.ndarray], slope: np.ndarray) -> np.ndarray:
+def _raw_suitability(env: dict[str, np.ndarray], slope: np.ndarray) -> np.ndarray:
     """The hidden 'true' niche: moist, temperate, low-to-mid elevation, near-neutral soils."""
-    s = (
+    return (
         _gauss(env["bio1"], 13.5, 3.0)
         * _gauss(env["bio12"], 900, 330)
         * _gauss(env["elevation"], 500, 600)
@@ -101,8 +102,14 @@ def virtual_species_suitability(env: dict[str, np.ndarray], slope: np.ndarray) -
         * _gauss(slope, 2.0, 5.0)
         * (0.5 + 0.5 * _sigmoid((env["clay"] - 20) / 8))
     )
-    s = s / np.nanpercentile(s, 99.5)
-    return np.clip(s, 0, 1).astype("float32")
+
+
+def virtual_species_suitability(env: dict[str, np.ndarray], slope: np.ndarray, norm: float | None = None) -> np.ndarray:
+    """True suitability in [0, 1]. ``norm`` fixes the scaling so other regions share the same scale."""
+    s = _raw_suitability(env, slope)
+    if norm is None:
+        norm = float(np.nanpercentile(s, 99.5))
+    return np.clip(s / norm, 0, 1).astype("float32")
 
 
 def _write_scene(path, ndvi, rng, grid, cloud_frac):
@@ -123,6 +130,21 @@ def _write_scene(path, ndvi, rng, grid, cloud_frac):
     write_raster(path, data, grid, nodata=None, dtype="uint16", descriptions=["red", "nir", "scl"])
 
 
+def _write_source_layers(env: dict[str, np.ndarray], big: Grid, layers_dir: Path) -> None:
+    """Write source rasters at deliberately different resolutions (exercises clip + resample)."""
+    dem_grid = big.with_resolution(big.resolution / DEM_UPSAMPLE)
+    dem = zoom(env["elevation"], DEM_UPSAMPLE, order=1).astype("float32")
+    write_raster(layers_dir / "elevation_dem.tif", dem, dem_grid)
+
+    clim_grid = big.with_resolution(big.resolution * CLIMATE_COARSEN)
+    for name in ("bio1", "bio12", "bio15"):
+        write_raster(layers_dir / f"{name}.tif", _block_mean(env[name], CLIMATE_COARSEN), clim_grid)
+
+    soil_grid = big.with_resolution(big.resolution * SOIL_COARSEN)
+    for name in ("soil_ph", "clay"):
+        write_raster(layers_dir / f"{name}.tif", _block_mean(env[name], SOIL_COARSEN), soil_grid)
+
+
 def generate_demo_data(study: Grid, out_dir, seed: int = 42, n_presences: int = 350, n_scenes: int = 5):
     """Write source rasters + dirty occurrence table + hidden truth. Returns the truth surface (study grid)."""
     out_dir = Path(out_dir)
@@ -137,25 +159,15 @@ def generate_demo_data(study: Grid, out_dir, seed: int = 42, n_presences: int = 
     from .processing import derive_slope
 
     slope_big = derive_slope(env["elevation"], big)
-    truth_big = virtual_species_suitability(env, slope_big)
+    norm = float(np.nanpercentile(_raw_suitability(env, slope_big), 99.5))
+    truth_big = virtual_species_suitability(env, slope_big, norm=norm)
 
     # --- crop truth to the study area
     r0 = int(round((big.north - study.north) / big.resolution))
     c0 = int(round((study.west - big.west) / big.resolution))
     truth = truth_big[r0 : r0 + study.height, c0 : c0 + study.width]
 
-    # --- source rasters at different resolutions
-    dem_grid = big.with_resolution(big.resolution / DEM_UPSAMPLE)
-    dem = zoom(env["elevation"], DEM_UPSAMPLE, order=1).astype("float32")
-    write_raster(layers_dir / "elevation_dem.tif", dem, dem_grid)
-
-    clim_grid = big.with_resolution(big.resolution * CLIMATE_COARSEN)
-    for name in ("bio1", "bio12", "bio15"):
-        write_raster(layers_dir / f"{name}.tif", _block_mean(env[name], CLIMATE_COARSEN), clim_grid)
-
-    soil_grid = big.with_resolution(big.resolution * SOIL_COARSEN)
-    for name in ("soil_ph", "clay"):
-        write_raster(layers_dir / f"{name}.tif", _block_mean(env[name], SOIL_COARSEN), soil_grid)
+    _write_source_layers(env, big, layers_dir)
 
     # --- cloudy "Sentinel-2" scenes
     for i in range(n_scenes):
@@ -186,6 +198,7 @@ def generate_demo_data(study: Grid, out_dir, seed: int = 42, n_presences: int = 
     out_dir.mkdir(parents=True, exist_ok=True)
     occ.to_csv(out_dir / "occurrences_raw.csv", index=False)
     write_raster(out_dir / "virtual_species_truth.tif", truth, study)
+    (out_dir / "truth_norm.json").write_text(json.dumps({"norm": norm}))
     return truth
 
 
@@ -217,3 +230,31 @@ def _add_dirty_records(occ: pd.DataFrame, study: Grid, rng) -> pd.DataFrame:
     out = pd.concat(pieces, ignore_index=True)
     out["gbifID"] = np.arange(1_000_000, 1_000_000 + len(out))
     return out.sample(frac=1, random_state=int(rng.integers(0, 10_000))).reset_index(drop=True)
+
+
+def generate_target_region(
+    target: Grid, out_dir, seed: int = 42, warm: float = 5.0, wet: float = 350.0
+):
+    """Synthetic *target* region for the transfer demo, with a shifted climate.
+
+    Same virtual species, same niche, same truth scale as the training region, but the
+    region is warmer (+``warm`` degC) and wetter (+``wet`` mm) so that much of it lies
+    outside the training climate. Returns the true suitability on the target grid.
+    """
+    out_dir = Path(out_dir)
+    norm = json.loads((out_dir / "truth_norm.json").read_text())["norm"]
+    big = target.buffered(BUFFER_DEG)
+    env = make_environment(big, seed + 1000)
+    env["bio1"] = env["bio1"] + warm
+    env["bio12"] = np.clip(env["bio12"] + wet, 150, 3200)
+
+    from .processing import derive_slope
+
+    slope_big = derive_slope(env["elevation"], big)
+    truth_big = virtual_species_suitability(env, slope_big, norm=norm)
+    r0 = int(round((big.north - target.north) / big.resolution))
+    c0 = int(round((target.west - big.west) / big.resolution))
+    truth = truth_big[r0 : r0 + target.height, c0 : c0 + target.width]
+    _write_source_layers(env, big, out_dir / "target_layers")
+    write_raster(out_dir / "target_truth.tif", truth, target)
+    return truth

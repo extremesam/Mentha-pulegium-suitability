@@ -23,11 +23,36 @@ def extract_at_points(stack: LayerStack, lon, lat) -> pd.DataFrame:
     return pd.DataFrame(out, columns=stack.names)
 
 
+def buffer_mask(stack: LayerStack, lon, lat, buffer_km: float) -> np.ndarray:
+    """True for cells within ``buffer_km`` of any presence cell.
+
+    Distance is measured in cell units and converted with 111.32 km per degree, so it
+    is approximate (it overstates east-west distances away from the equator). Use it to
+    restrict background sampling to the area the species could plausibly have reached
+    rather than the whole study area.
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    row, col, inside = stack.grid.index_of(lon, lat)
+    seeds = np.zeros(stack.grid.shape, dtype=bool)
+    seeds[row[inside], col[inside]] = True
+    dist_cells = distance_transform_edt(~seeds)
+    return dist_cells * stack.grid.resolution * 111.32 <= buffer_km
+
+
 def sample_background(
-    stack: LayerStack, n: int, rng: np.random.Generator, exclude_cells: set[int] | None = None
+    stack: LayerStack,
+    n: int,
+    rng: np.random.Generator,
+    exclude_cells: set[int] | None = None,
+    allowed: np.ndarray | None = None,
 ) -> pd.DataFrame:
-    """Draw ``n`` random background points from valid cells (jittered within the cell)."""
-    rows, cols = np.nonzero(stack.valid_mask)
+    """Draw ``n`` random background points from valid cells (jittered within the cell).
+
+    ``allowed`` optionally restricts sampling to a boolean (H, W) mask.
+    """
+    valid = stack.valid_mask if allowed is None else (stack.valid_mask & allowed)
+    rows, cols = np.nonzero(valid)
     if exclude_cells:
         flat = rows.astype(np.int64) * stack.grid.width + cols
         keep = ~np.isin(flat, list(exclude_cells))
@@ -47,8 +72,12 @@ def build_dataset(
     n_background: int,
     seed: int = 42,
     exclude_presence_cells: bool = False,
+    buffer_km: float | None = None,
 ) -> pd.DataFrame:
-    """Create the modelling table: ``label`` (1 presence / 0 background), lon, lat, layers."""
+    """Create the modelling table: ``label`` (1 presence / 0 background), lon, lat, layers.
+
+    ``buffer_km`` restricts background points to within that distance of a presence cell.
+    """
     rng = np.random.default_rng(seed)
     pres = occurrences[["lon", "lat"]].reset_index(drop=True)
     pres_env = extract_at_points(stack, pres["lon"], pres["lat"])
@@ -59,7 +88,8 @@ def build_dataset(
         row, col, inside = stack.grid.index_of(pres["lon"], pres["lat"])
         exclude = set((row[inside].astype(np.int64) * stack.grid.width + col[inside]).tolist())
 
-    bg = sample_background(stack, n_background, rng, exclude)
+    allowed = buffer_mask(stack, pres["lon"], pres["lat"], buffer_km) if buffer_km else None
+    bg = sample_background(stack, n_background, rng, exclude, allowed)
     bg_env = extract_at_points(stack, bg["lon"], bg["lat"])
     background = pd.concat([bg, bg_env], axis=1).assign(label=0)
 

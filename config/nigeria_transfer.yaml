@@ -1,0 +1,80 @@
+# REAL-DATA transfer run: learn where Mentha pulegium lives (worldwide), then project onto Nigeria.
+#
+#   1. python scripts/prepare_real_data.py worldclim      # downloads WorldClim 2.1 bio + elevation
+#   2. python scripts/prepare_real_data.py boundary --iso NGA   # Nigeria outline for masking/area stats
+#   3. hsm run --config config/nigeria_transfer.yaml --mode real
+#
+# NOTHING IN THIS FILE HAS BEEN RUN AGAINST LIVE DATA YET. Expect to adjust it after the first run.
+# Read docs/TRANSFER_NIGERIA.md before interpreting the output.
+
+project:
+  species: Mentha pulegium
+  seed: 42
+
+# TRAINING area: the whole world's land latitudes. Training on the species' full climatic range
+# (native + introduced) gives the model the widest possible look at the conditions it tolerates,
+# which matters most when predicting a climate it has never been recorded in.
+# Sensitivity run: replace with a native-range box (west -12, south 28, east 50, north 55) and compare.
+study_area:
+  name: World (land latitudes)
+  west: -180.0
+  south: -56.0
+  east: 180.0
+  north: 72.0
+  resolution: 0.25          # ~28 km. Train and project at the same scale (see docs/TRANSFER_NIGERIA.md)
+  crs: EPSG:4326
+
+paths:
+  demo_dir: data/demo
+  raw_dir: data/raw
+  processed_dir: data/processed_nigeria
+  results_dir: results_nigeria
+
+occurrences:
+  source: gbif
+  csv: data/raw/occurrences.csv
+  max_gbif_records: 100000   # GBIF's search API cannot page beyond 100k; use a GBIF download if you need more
+  max_uncertainty_m: 10000   # roughly a third of a 0.25 degree cell
+  year_min: 1970             # WorldClim 2.1 covers 1970-2000
+  thin_to_grid: true
+
+# Climate + elevation only. Soil and satellite layers are left out on purpose: soil maps carry large
+# regional uncertainty, and NDVI describes the training scene rather than climate suitability.
+# Priority order for the collinearity filter: earlier = kept.
+layers:
+  bio1:      {file: bio1.tif,         resampling: average}   # annual mean temperature
+  bio5:      {file: bio5.tif,         resampling: average}   # max temperature of warmest month
+  bio6:      {file: bio6.tif,         resampling: average}   # min temperature of coldest month
+  bio12:     {file: bio12.tif,        resampling: average}   # annual precipitation
+  bio15:     {file: bio15.tif,        resampling: average}   # precipitation seasonality
+  bio17:     {file: bio17.tif,        resampling: average}   # precipitation of driest quarter
+  elevation: {file: elevation_dem.tif, resampling: average}  # WorldClim elevation
+
+background:
+  n_points: 20000
+  exclude_presence_cells: false
+  # Restrict background to cells within this distance of a record (the area the species could have reached).
+  # Null = the whole training area. Try both and compare (see docs/TRANSFER_NIGERIA.md).
+  buffer_km: 1500
+
+features:
+  correlation_threshold: 0.85
+
+modeling:
+  test_size: 0.30
+  algorithms: [random_forest, maxent_style, boosted_trees]
+  random_forest: {n_estimators: 500, min_samples_leaf: 5, max_features: sqrt}
+  boosted_trees: {learning_rate: 0.05, max_iter: 300, max_leaf_nodes: 15}
+  ensemble_min_auc: 0.70
+  spatial_cv: {enabled: true, block_deg: 10.0, n_splits: 5}   # big blocks: hold out whole regions
+
+mapping:
+  class_thresholds: [0.25, 0.50, 0.75]
+
+projection:
+  enabled: true
+  name: Nigeria
+  grid: {west: 2.5, south: 4.0, east: 15.0, north: 14.0, resolution: 0.25, crs: EPSG:4326}
+  mask_geojson: data/raw/nigeria_adm0.geojson   # from the `boundary` step; delete this line to skip masking
+  layers_dir: data/raw/layers
+  clamp: true
